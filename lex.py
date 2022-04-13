@@ -127,7 +127,7 @@ class Lexer:
             while self.peekChar().isdigit():
                 self.nextChar()
 
-            if self.nextChar() == '.': # Decimal!
+            if self.peekChar() == '.': # Decimal!
                 self.nextChar()
 
                 # Must have at least one digit after decimal.

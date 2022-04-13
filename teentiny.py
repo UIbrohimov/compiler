@@ -1,7 +1,7 @@
 from lex import *
 
 def main():
-    input = "+- */"
+    input = "+-123 9.8654*/"
     lexer = Lexer(input)
 
     token = lexer.getToken()

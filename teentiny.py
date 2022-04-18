@@ -1,12 +1,19 @@
 from lex import *
+from parse import *
 
 def main():
-    input = "IF+-123 foo*THEN/"
-    lexer = Lexer(input)
+    print("Teeny Tiny Compiler")
 
-    token = lexer.getToken()
-    while token.kind != TokenType.EOF:
-        print(token)
-        token = lexer.getToken()
+    if len(sys.argv) != 2:
+        sys.exit("Error: Compiler needs source file as an argument\nUsage: python3 teentiny.py <filename>")
+    with open(sys.argv[1], 'r') as sourceFile:
+        source = sourceFile.read()
+    
+    # initialize the lexer and parser
+    lexer = Lexer(source)
+    parser = Parser(lexer)
+
+    parser.program()
+    print("\n\nParsing completed.")
 
 main()

@@ -1,42 +1,42 @@
 import sys
 from lex import *
 
-# Parser object keeps track of current token, checks if the code matches the grammar, and emits code along the way.
+# Parset, checks if the code matches the grammar, and emits code along the way.
 class Parser:
     def __init__(self, lexer, emitter):
         self.lexer = lexer
         self.emitter = emitter
 
-        self.symbols = set()    # All variables we have declared so far.
-        self.labelsDeclared = set() # Keep track of all labels declared
-        self.labelsGotoed = set() # All labels goto'ed, so we know if they exist or not.
+        self.symbols = set()    # barcha o'zgaruvchilar to'plami.
+        self.labelsDeclared = set() # Barcha labellar
+        self.labelsGotoed = set() # barcha go to qilingan labellar.
 
         self.curToken = None
         self.peekToken = None
         self.nextToken()
-        self.nextToken()    # Call this twice to initialize current and peek.
+        self.nextToken() # Next tokenni ikki marta chaqiramiz curToken va peekTokenlarni set qilib olish uchun.
 
-    # Return true if the current token matches.
+    # joriy token match qilsa uni qaytaramiz.
     def checkToken(self, kind):
         return kind == self.curToken.kind
 
-    # Return true if the next token matches.
+    # keyingi token match qilsa qaytaramiz.
     def checkPeek(self, kind):
         return kind == self.peekToken.kind
 
-    # Try to match current token. If not, error. Advances the current token.
+    # Joriy tokenni tekshirib ko'ramiz. Match qilmasa, error. Aks holda keyingi tokenga o'tamiz.
     def match(self, kind):
         if not self.checkToken(kind):
             self.abort("Expected " + kind.name + ", got " + self.curToken.kind.name)
         self.nextToken()
 
-    # Advances the current token.
+    # Keyingi tokenni olish.
     def nextToken(self):
         self.curToken = self.peekToken
         self.peekToken = self.lexer.getToken()
-        # No need to worry about passing the EOF, lexer handles that.
+        # EOF ni handle qilish haqida qayg urmaymiz, lexerning o'zi shug'ullanadi.
 
-    # Return true if the current token is a comparison operator.
+    # Agar joriy token taqqoslash operatori bo'lsa true qaytaramiz.
     def isComparisonOperator(self):
         return self.checkToken(TokenType.GT) or self.checkToken(TokenType.GTEQ) or self.checkToken(TokenType.LT) or self.checkToken(TokenType.LTEQ) or self.checkToken(TokenType.EQEQ) or self.checkToken(TokenType.NOTEQ)
 
@@ -44,34 +44,32 @@ class Parser:
         sys.exit("Error! " + message)
 
 
-    # Production rules.
-
     # program ::= {statement}
     def program(self):
         self.emitter.headerLine("#include <stdio.h>")
         self.emitter.headerLine("int main(void){")
         
-        # Since some newlines are required in our grammar, need to skip the excess.
+        # bizning dasturimizda yangi qatorlar kerak ekan, ularni shunchaki skip qilib ketamiz.
         while self.checkToken(TokenType.NEWLINE):
             self.nextToken()
 
-        # Parse all the statements in the program.
+        # dasturdagi barcha statemenetlarni pars qilish.
         while not self.checkToken(TokenType.EOF):
             self.statement()
 
-        # Wrap things up.
+        # Barcha kodni o'rab olish.
         self.emitter.emitLine("return 0;")
         self.emitter.emitLine("}")
 
-        # Check that each label referenced in a GOTO is declared.
+        # GOTO qilingan barcha labellarni ko'rib chiqish.
         for label in self.labelsGotoed:
             if label not in self.labelsDeclared:
                 self.abort("Attempting to GOTO to undeclared label: " + label)
 
 
-    # One of the following statements...
+    # Quyidagi statementlardan biri...
     def statement(self):
-        # Check the first token to see what kind of statement this is.
+        # Birinchinchi tokenni tekshirish, uning qaysi statementga tegishliligini tekshirish.
 
         # "PRINT" (expression | string)
         if self.checkToken(TokenType.PRINT):

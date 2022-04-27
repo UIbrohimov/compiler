@@ -1,118 +1,89 @@
-import enum
 import sys
+import enum
 
+# Lexer object keeps track of current position in the source code and produces each token.
+# Lexer obyekt kompaylerning har bir turgan yerini belgilaydi va coddagi tokenlarni obrobotka qiladi
 class Lexer:
     def __init__(self, input):
-        self.source = input + '\n'
-        self.curChar = ''
-        self.curPos = -1
+        self.source = input + '\n' # Lexerga string ko'rinishidagi kod. Parse qilish osonroq bo'lishi uchun oxiriga \n qo'yib ketamiz.
+        self.curChar = ''   # Berilgan string ko'rinishidagi source coddagi hoizirgi simvol.
+        self.curPos = -1    # Keyingi kutilayotgan simvol.
         self.nextChar()
 
-    # Process the next character
+    # Keyingi simvolni olish.
     def nextChar(self):
         self.curPos += 1
         if self.curPos >= len(self.source):
-            self.curChar = '\0' # EOF
+            self.curChar = '\0'  # EOF
         else:
             self.curChar = self.source[self.curPos]
 
-    # Return the lookahead character
-    def peekChar(self):
+    # Oldinda turgan simvolni aniqlash.
+    def peek(self):
         if self.curPos + 1 >= len(self.source):
             return '\0'
-        return self.source[self.curPos + 1] 
+        return self.source[self.curPos+1]
 
-    # Invalid token found, print error message and exit
+    # Noto'g'ri sintaksisga duch kelgan taqdirda kerakli ogohlantiruv 
+    # xabarini berib, interpritatorni to'xtatish.
     def abort(self, message):
-        sys.exit("Lexing error: " + message)
+        sys.exit("Leksik xato. " + message)
 
-    def skipWhitespace(self):
-        """
-        Skip whitespace except newlines, which we will 
-        use to indecate the end of a statement
-        """
-        while self.curChar == ' ' or self.curChar == '\t' or self.curChar == '\r':
-            self.nextChar()
-
-    # Skip comments in the code
-    def skipComments(self):
-        if self.curChar == "#":
-            while self.curChar != '\n':
-                self.nextChar() 
-
-    # Return the next token
+    # Tokenni qaytarish.
     def getToken(self):
-        """
-        Check the first character of this token to see if 
-        we can decide what is it.
-        If it is a multiple character operator (e.g., !=),
-        number identifier, or string, then we need to 
-        process the whole token.
-        """
         self.skipWhitespace()
-        self.skipComments()
+        self.skipComment()
         token = None
+
+        # Kelgan stringdagi birinchi elementni tekshrish, shunga qarab keyingi qadam tashlanadi.
         if self.curChar == '+':
             token = Token(self.curChar, TokenType.PLUS)
-
         elif self.curChar == '-':
             token = Token(self.curChar, TokenType.MINUS)
-
         elif self.curChar == '*':
             token = Token(self.curChar, TokenType.ASTERISK)
-
         elif self.curChar == '/':
             token = Token(self.curChar, TokenType.SLASH)
-
-        elif self.curChar == '\n':
-            token = Token(self.curChar, TokenType.NEWLINE)
-
-        elif self.curChar == '\0':
-            token = Token('', TokenType.EOF)
-
         elif self.curChar == '=':
-            # check whether this token is = or ==
-            if self.peekChar() == '=':
+            # Token = yoki == ekanligini tekshirish
+            if self.peek() == '=':
                 lastChar = self.curChar
                 self.nextChar()
                 token = Token(lastChar + self.curChar, TokenType.EQEQ)
             else:
                 token = Token(self.curChar, TokenType.EQ)
-
         elif self.curChar == '>':
-            # Check whether this is token is > or >=
-            if self.peekChar() == '=':
+            # Token > yoki >= ekanligini tekshirish
+            if self.peek() == '=':
                 lastChar = self.curChar
                 self.nextChar()
                 token = Token(lastChar + self.curChar, TokenType.GTEQ)
             else:
                 token = Token(self.curChar, TokenType.GT)
-
         elif self.curChar == '<':
-            # Check whether this is token is < or <=
-            if self.peekChar() == '=':
+            # Token < yoki <= ekanligini tekshirish
+            if self.peek() == '=':
                 lastChar = self.curChar
                 self.nextChar()
                 token = Token(lastChar + self.curChar, TokenType.LTEQ)
             else:
                 token = Token(self.curChar, TokenType.LT)
-
         elif self.curChar == '!':
-            if self.peekChar() == '=':
+            if self.peek() == '=':
                 lastChar = self.curChar
                 self.nextChar()
                 token = Token(lastChar + self.curChar, TokenType.NOTEQ)
             else:
-                self.abort("Expected !=, got !" + self.peekChar())
+                self.abort("Expected !=, got !" + self.peek())
 
         elif self.curChar == '\"':
-            # Get characters between quotations.
+            # Qo'shtirnoq ichidagi belgilarni olish.
             self.nextChar()
             startPos = self.curPos
 
             while self.curChar != '\"':
                 # Don't allow special characters in the string. No escape characters, newlines, tabs, or %.
-                # We will be using C's printf on this string.
+                # Biz bu stringni print qilish uchn C ning printf funksiyasidan foydalanim.
                 if self.curChar == '\r' or self.curChar == '\n' or self.curChar == '\t' or self.curChar == '\\' or self.curChar == '%':
                     self.abort("Illegal character in string.")
                 self.nextChar()
@@ -121,43 +92,43 @@ class Lexer:
             token = Token(tokText, TokenType.STRING)
 
         elif self.curChar.isdigit():
-            # Leading character is a digit, so this must be a number.
-            # Get all consecutive digits and decimal if there is one.
+            # Birinchi harf bu son, Demak bu raqam bo'lishi mumkin.
+            # Barcha ketma ket sonlarni olamiz yoki o'nli sanoq sistemasi ekanligini aniqlaymiz.
             startPos = self.curPos
-            while self.peekChar().isdigit():
+            while self.peek().isdigit():
+                self.nextChar()
+            if self.peek() == '.': # Decimal!
                 self.nextChar()
 
-            if self.peekChar() == '.': # Decimal!
-                self.nextChar()
-
-                # Must have at least one digit after decimal.
-                if not self.peekChar().isdigit(): 
-                    # Error!
+                # O'nli qismidan keyin kamida bitta son bo'lishi kerak.
+                if not self.peek().isdigit(): 
+                    # Xato!
                     self.abort("Illegal character in number.")
-                while self.peekChar().isdigit():
+                while self.peek().isdigit():
                     self.nextChar()
 
             tokText = self.source[startPos : self.curPos + 1] # Get the substring.
             token = Token(tokText, TokenType.NUMBER)
-
         elif self.curChar.isalpha():
-            # Leading character is a letter, so this must be an identifier or a keyword.
-            # Get all consecutive alpha numeric characters
+            # Birinchi simvol harf, demak bu kalit so'z yoki biror kerakli simvol.
+            # Barcha harf va raqamlarni ajratib olamiz.
             startPos = self.curPos
-            while self.peekChar().isalnum():
+            while self.peek().isalnum():
                 self.nextChar()
 
-            # check if the token is in the list of keywords
-            tokText = self.source[startPos : self.curPos + 1]
-            keyword = Token.checkIfKeyword(tokText)
-            if keyword == None: # identifier
-                token = Token(tokText, TokenType.IDENT)
-            else: # Keyword
-                token = Token(tokText, keyword)
-
+            # Check if the token is in the list of keywords.
             tokText = self.source[startPos : self.curPos + 1] # Get the substring.
-            token = Token(tokText, TokenType.NUMBER)
-
+            keyword = Token.checkIfKeyword(tokText)
+            if keyword == None: # Belgi
+                token = Token(tokText, TokenType.IDENT)
+            else:   # kalit so'z
+                token = Token(tokText, keyword)
+        elif self.curChar == '\n':
+            # Yangi qator.
+            token = Token('\n', TokenType.NEWLINE)
+        elif self.curChar == '\0':
+             # EOF - End Of a File.
+            token = Token('', TokenType.EOF)
         else:
             # Unknown token!
             self.abort("Unknown token: " + self.curChar)
@@ -165,38 +136,40 @@ class Lexer:
         self.nextChar()
         return token
 
+    # Bo'sh joy va commentariyalarni ignore qilish, biror amalning tugashini bildira olish uchun.
+    def skipWhitespace(self):
+        while self.curChar == ' ' or self.curChar == '\t' or self.curChar == '\r':
+            self.nextChar()
 
-class Token:
-    """
-    Token contains the original text and the type of token
-    """
+    def skipComment(self):
+        if self.curChar == '#':
+            while self.curChar != '\n':
+                self.nextChar()
+
+
+# Token class tokenning matni va uning turini saqlaydi.
+class Token:   
     def __init__(self, tokenText, tokenKind):
-        self.text = tokenText # original text
-        self.kind = tokenKind # token type
-
-    def __str__(self):
-        return f'Token({self.text}, {self.kind})'
-
-    def __repr__(self):
-        return self.__str__()
+        self.text = tokenText   # Tokenning asl matni. Belgilar, string va raqamlar uchun.
+        self.kind = tokenKind   # Token type bu tokenning klasifikatsiyasi yani tipi.
 
     @staticmethod
     def checkIfKeyword(tokenText):
         for kind in TokenType:
-            # relies on all keyword enum values being 1XXX
+            # Keyvor bo'lishi uchun tanlov raqami 100 va 200 ning orasida bo'lishi kerak.
             if kind.name == tokenText and kind.value >= 100 and kind.value < 200:
                 return kind
         return None
 
 
+# Token type binning kichik dasturlash tilimizdagi barcha tokenlar uchun raqamli choice class.
 class TokenType(enum.Enum):
     EOF = -1
     NEWLINE = 0
     NUMBER = 1
     IDENT = 2
     STRING = 3
-
-    # KEYWORDS
+    # Kalit so'zlar.
     LABEL = 101
     GOTO = 102
     PRINT = 103
@@ -208,9 +181,8 @@ class TokenType(enum.Enum):
     WHILE = 109
     REPEAT = 110
     ENDWHILE = 111
-
-    # OPERATORS
-    EQ = 201
+    # Operatorlar.
+    EQ = 201  
     PLUS = 202
     MINUS = 203
     ASTERISK = 204
